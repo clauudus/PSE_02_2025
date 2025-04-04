@@ -22,6 +22,10 @@
 
 const portTickType delay1 = pdMS_TO_TICKS(500);
 
+const QueueHandle_t xQueue;
+const xQueue = xQueueCreate(mainQUEUE_LENGTH, sizeof(unsigned long));
+
+
 /***************************************************************************//**
  * @brief Simple task which is blinking led
  * @param *pParameters pointer to parameters passed to the function
@@ -94,8 +98,8 @@ int main(void)
   BSP_LedSet(1);
 
   /*Create one queue for blinking leds */
-  QueueHandle_t xQueue;
-  xQueue = xQueueCreate(mainQUEUE_LENGTH, sizeof(unsigned long));
+
+
 
   /*Create two task for blinking leds*/
   if(xQueue != NULL)
