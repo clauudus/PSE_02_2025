@@ -18,6 +18,9 @@
 
 #define STACK_SIZE_FOR_TASK    (configMINIMAL_STACK_SIZE + 10)
 #define TASK_PRIORITY          (tskIDLE_PRIORITY + 1)
+#define mainQUEUE_LENGTH		   2
+
+const portTickType delay1 = pdMS_TO_TICKS(500);
 
 /***************************************************************************//**
  * @brief Simple task which is blinking led
@@ -40,7 +43,37 @@ static void LedBlink(void *pParameters)
   }
 }
 
+static void prvQueueSENDtask(void *pvParameters)
+{
+	TickType_t xNextWakeTime;
+	const TickType_t xFrequency = 10;
 
+	const portTickType nextTaskSend;
+	const unsigned long ValuetoSend = 100;
+	xNextWakeTime = xTaskGetTickCount();
+
+	QueueHandle_t xQueue;
+
+	for(;;)
+	{
+		vTaskDelayUntil(&xNextWakeTime, xFrequency);
+		xQueueSend(xQueue, &ValuetoSend, 0);
+	}
+}
+
+static void prvQueueReceivetask(void *pvParameters)
+{
+	unsigned long ReceivedValue;
+	QueueHandle_t xQueue;
+	for(;;)
+	{
+		xQueueReceive(xQueue, &ReceivedValue, delay1);
+		if(ReceivedValue == 100)
+		{
+			printf("FUNCIONO");
+		}
+	}
+}
 
 
 
@@ -60,9 +93,23 @@ int main(void)
   BSP_LedSet(0);
   BSP_LedSet(1);
 
-  /*Create two task for blinking leds*/
-  xTaskCreate(LedBlink, (const char *) "LedBlink1", STACK_SIZE_FOR_TASK, NULL, TASK_PRIORITY, NULL);
+  /*Create one queue for blinking leds */
+  QueueHandle_t xQueue;
+  xQueue = xQueueCreate(mainQUEUE_LENGTH, sizeof(unsigned long));
 
+  /*Create two task for blinking leds*/
+  if(xQueue != NULL)
+  {
+
+	  xTaskCreate(prvQueueReceivetask, (const char *) "Receive", STACK_SIZE_FOR_TASK, NULL, TASK_PRIORITY, NULL);
+	  xTaskCreate(prvQueueSENDtask, (const char *) "Send", STACK_SIZE_FOR_TASK, NULL, TASK_PRIORITY, NULL);
+	  vTaskStartScheduler();
+  }
+
+
+
+  	  /*xTaskCreate(LedBlink, (const char *) "LedBlink1", STACK_SIZE_FOR_TASK, NULL, TASK_PRIORITY, NULL);*/
+	  /*xTaskCreate(LedBlink, (const char *) "LedBlink2", STACK_SIZE_FOR_TASK, NULL, TASK_PRIORITY, NULL);*/
   /*Start FreeRTOS Scheduler*/
   vTaskStartScheduler();
 
