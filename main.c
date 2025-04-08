@@ -1,3 +1,9 @@
+/***************************************
+Main objective of this code:
+Create two tasks and a queue to handle
+the on and off turning of a red led
+Still in process
+****************************************/
 
 #include <stdio.h>
 #include <stdlib.h>
