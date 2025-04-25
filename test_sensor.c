@@ -1,7 +1,4 @@
-0
-31
-32
-33
+
 #include "Adafruit_CCS811.h"
  
 Adafruit_CCS811 ccs;
