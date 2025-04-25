@@ -1,9 +1,5 @@
-/***************************************
-Main objective of this code:
-Create two tasks and a queue to handle
-the on and off turning of a red led
-Still in process
-****************************************/
+#include <stdio.h>
+#include <stdlib.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -21,107 +17,98 @@ Still in process
 
 #include "bsp_i2c.h"
 
-
 #define STACK_SIZE_FOR_TASK    (configMINIMAL_STACK_SIZE + 10)
 #define TASK_PRIORITY          (tskIDLE_PRIORITY + 1)
-#define mainQUEUE_LENGTH		   2
+#define QUEUE_LENGTH           2
 
-const portTickType delay1 = pdMS_TO_TICKS(500);
+// Struct to send info
+typedef struct {
+    uint8_t ledNumber;
+    char message[30];
+} LedMessage_t;
 
-const QueueHandle_t xQueue;
-const xQueue = xQueueCreate(mainQUEUE_LENGTH, sizeof(unsigned long));
+// Global queue
+QueueHandle_t xLedQueue;
 
-
-/***************************************************************************//**
- * @brief Simple task which is blinking led
- * @param *pParameters pointer to parameters passed to the function
- ******************************************************************************/
-static void LedBlink(void *pParameters)
+void vLedTask1(void *pvParameters)
 {
-  (void) pParameters;
-  const portTickType delaya = pdMS_TO_TICKS(500);
-  const portTickType delayb = pdMS_TO_TICKS(250);
+    LedMessage_t msgToSend;
+    const TickType_t delay = pdMS_TO_TICKS(500);
 
-  for (;; ) {
-    BSP_LedToggle(1);
-    printf("Task 1\n");
-    vTaskDelay(delaya);
+    msgToSend.ledNumber = 0;
+    snprintf(msgToSend.message, sizeof(msgToSend.message), "LED 0 Blink");
 
-    BSP_LedToggle(0);
-    printf("Task 2\n");
-    vTaskDelay(delayb);
-  }
+    while (1) {
+        xQueueSend(xLedQueue, &msgToSend, 0);
+        vTaskDelay(delay);
+    }
 }
 
-static void prvQueueSENDtask(void *pvParameters)
+void vLedTask2(void *pvParameters)
 {
-	TickType_t xNextWakeTime;
-	const TickType_t xFrequency = 10;
+    LedMessage_t msgToSend;
+    const TickType_t delay = pdMS_TO_TICKS(800);
 
-	const portTickType nextTaskSend;
-	const unsigned long ValuetoSend = 100;
-	xNextWakeTime = xTaskGetTickCount();
+    msgToSend.ledNumber = 1;
+    snprintf(msgToSend.message, sizeof(msgToSend.message), "LED 1 Blink");
 
-	QueueHandle_t xQueue;
-
-	for(;;)
-	{
-		vTaskDelayUntil(&xNextWakeTime, xFrequency);
-		xQueueSend(xQueue, &ValuetoSend, 0);
-	}
+    while (1) {
+        xQueueSend(xLedQueue, &msgToSend, 0);
+        vTaskDelay(delay);
+    }
 }
 
-static void prvQueueReceivetask(void *pvParameters)
+void vReceiverTask(void *pvParameters)
 {
-	unsigned long ReceivedValue;
-	QueueHandle_t xQueue;
-	for(;;)
-	{
-		xQueueReceive(xQueue, &ReceivedValue, delay1);
-		if(ReceivedValue == 100)
-		{
-			printf("FUNCIONO");
-		}
-	}
+    LedMessage_t receivedMsg;
+
+    while (1) {
+        if (xQueueReceive(xLedQueue, &receivedMsg, pdMS_TO_TICKS(1000)) == pdPASS) {
+            BSP_LedToggle(receivedMsg.ledNumber);
+            printf("Rebut: %s\n", receivedMsg.message);
+        }
+    }
 }
 
-
-
-/***************************************************************************//**
- * @brief  Main function
- ******************************************************************************/
 int main(void)
 {
-  /* Chip errata */
-  CHIP_Init();
-  /* If first word of user data page is non-zero, enable Energy Profiler trace */
-  BSP_TraceProfilerSetup();
+    CHIP_Init();
+    BSP_TraceProfilerSetup();
+    BSP_LedsInit();
 
-  /* Initialize LED driver */
-  BSP_LedsInit();
-  /* Setting state of leds*/
-  BSP_LedSet(0);
-  BSP_LedSet(1);
+    BSP_LedClear(0);
+    BSP_LedClear(1);
 
-  /*Create one queue for blinking leds */
+    BSP_I2C_Init(0xB6);
+    uint8_t valor;
+
+    //Create the queue
+    xLedQueue = xQueueCreate(QUEUE_LENGTH, sizeof(LedMessage_t));
+    I2C_Test();
 
 
-
-  /*Create two task for blinking leds*/
-  if(xQueue != NULL)
-  {
-
-	  xTaskCreate(prvQueueReceivetask, (const char *) "Receive", STACK_SIZE_FOR_TASK, NULL, TASK_PRIORITY, NULL);
-	  xTaskCreate(prvQueueSENDtask, (const char *) "Send", STACK_SIZE_FOR_TASK, NULL, TASK_PRIORITY, NULL);
-	  vTaskStartScheduler();
-  }
+    BSP_I2C_ReadRegister(0xB6, &valor);
+    printf("Valor: %02X\n", valor);
 
 
 
-  	  /*xTaskCreate(LedBlink, (const char *) "LedBlink1", STACK_SIZE_FOR_TASK, NULL, TASK_PRIORITY, NULL);*/
-	  /*xTaskCreate(LedBlink, (const char *) "LedBlink2", STACK_SIZE_FOR_TASK, NULL, TASK_PRIORITY, NULL);*/
-  /*Start FreeRTOS Scheduler*/
-  vTaskStartScheduler();
+    if (xLedQueue != NULL)
+    {
+        //Creation of two task (each for each led) and a task to recieve the info
+        xTaskCreate(vLedTask1, "LED0 Task", STACK_SIZE_FOR_TASK, NULL, TASK_PRIORITY, NULL);
+        xTaskCreate(vLedTask2, "LED1 Task", STACK_SIZE_FOR_TASK, NULL, TASK_PRIORITY, NULL);
+        xTaskCreate(vReceiverTask, "Receiver Task", STACK_SIZE_FOR_TASK, NULL, TASK_PRIORITY, NULL);
 
-  return 0;
+        vTaskStartScheduler();
+    }
+
+    // If the queue creation fails its task
+    while (1);
 }
+
+/*
+We used for this exercice:
+-vLedTask1 / vLedTask2: To send info about the led
+-vReceiverTask: To receive info about the led and toggle its led
+-We do everything thanks to a structure that we send through the queue (LedMessage_t)
+*/
