@@ -38,41 +38,13 @@ typedef struct {
 QueueHandle_t xDataQueue;
 QueueHandle_t xLedQueue;
 
-void vLedTask1(void *pvParameters)
-{
-    Message_t msgToSend;
-    const TickType_t delay = pdMS_TO_TICKS(500);
 
-    //msgToSend.ledNumber = 0;
-    snprintf(msgToSend.message, sizeof(msgToSend.message), "LED 0 Blink");
-
-    while (1) {
-        xQueueSend(xLedQueue, &msgToSend, 0);
-        vTaskDelay(delay);
-    }
-}
-
-
-void vLedTask2(void *pvParameters)
-{
-    Message_t msgToSend;
-    const TickType_t delay = pdMS_TO_TICKS(800);
-
-    //msgToSend.ledNumber = 1;
-    snprintf(msgToSend.message, sizeof(msgToSend.message), "LED 1 Blink");
-
-    while (1) {
-        xQueueSend(xLedQueue, &msgToSend, 0);
-        vTaskDelay(delay);
-    }
-
-}
 
 
 
 void vDataSend(void *pvParameters)
 {
-	int co2 = (rand() % 8192) + 400;
+	int co2 = 1500;//(rand() % 8192) + 400;
 
 	 Message_t msgToSend;
 	 const TickType_t delay = pdMS_TO_TICKS(500);
@@ -135,18 +107,18 @@ void vReceiveLedNumber(void *pvParameters)
 				{
 				case 0:
 					BSP_LedToggle(0);
-					printf("GREEN LIGHT");
+					printf("GREEN LIGHT \n");
 					break;
 
 				case 1:
 					BSP_LedToggle(1);
-					printf("YELLOW LIGHT");
+					printf("YELLOW LIGHT \n");
 					break;
 
 				case 2:
 					BSP_LedToggle(0);
 					BSP_LedToggle(1);
-					printf("RED LIGHT");
+					printf("RED LIGHT \n");
 					break;
 
 				default:
@@ -209,14 +181,13 @@ int main(void)
 	    //uint8_t value;
 
 	    //Create the queue
-	    xLedQueue = xQueueCreate(QUEUE_LENGTH, sizeof(Message_t));
 	    xDataQueue = xQueueCreate(QUEUE_LENGTH, sizeof(Message_t));
+	    xLedQueue = xQueueCreate(QUEUE_LENGTH, sizeof(LedMessage_t));
 
-	    printf("Starting queues");
+	    printf("Starting queues \n");
 
 	    if (xDataQueue != NULL)
 	    {
-			//Creation of two task (each for each led) and a task to recieve the info
 	    	xTaskCreate(vDataSend, "DATA Send", STACK_SIZE_FOR_TASK, NULL, TASK_PRIORITY, NULL);
 
 	    	xTaskCreate(vReceiverDegreeCalculator, "DATA Received", STACK_SIZE_FOR_TASK, NULL, TASK_PRIORITY, NULL);
@@ -224,7 +195,6 @@ int main(void)
 
 	    if (xLedQueue != NULL)
 	   	    {
-	   			//Creation of two task (each for each led) and a task to recieve the info
 	   	    	xTaskCreate(vReceiveLedNumber, "Led number received", STACK_SIZE_FOR_TASK, NULL, TASK_PRIORITY, NULL);
 	   	    }
 
