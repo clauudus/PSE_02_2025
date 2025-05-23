@@ -23,14 +23,14 @@
 
 // Struct to send info
 typedef struct {
-    uint8_t co2Value;
+    int co2Value;
     char message[30];
 } Message_t;
 
 
 
 typedef struct {
-	uint8_t LedToToggle;
+	int LedToToggle;
 	char message[30];
 } LedMessage_t;
 
@@ -65,13 +65,14 @@ void vLedTask2(void *pvParameters)
         xQueueSend(xLedQueue, &msgToSend, 0);
         vTaskDelay(delay);
     }
+
 }
 
 
 
 void vDataSend(void *pvParameters)
 {
-	uint8_t co2 = (rand(8192) + 400) % 8192;
+	int co2 = (rand() % 8192) + 400;
 
 	 Message_t msgToSend;
 	 const TickType_t delay = pdMS_TO_TICKS(500);
@@ -89,7 +90,7 @@ void vDataSend(void *pvParameters)
 void vReceiverDegreeCalculator(void *pvParameters)
 {
     Message_t receivedMsg;
-    uint8_t LedNumber = 0;
+    int LedNumber = 0;
     	// 400 - 1000 verd, 1000 - 2000 groc, 2000 - 8192 vermell
     while (1)
     {
@@ -114,6 +115,51 @@ void vReceiverDegreeCalculator(void *pvParameters)
         }
     }
 }
+
+
+
+void vReceiveLedNumber(void *pvParameters)
+{
+	LedMessage_t LedRebut;
+	const TickType_t delay = pdMS_TO_TICKS(1000);
+
+	 while (1)
+		{
+
+			if (xQueueReceive(xLedQueue, &LedRebut, pdMS_TO_TICKS(1000)) == pdPASS)
+			{
+				BSP_LedClear(0);
+				BSP_LedClear(1);
+
+				switch(LedRebut.LedToToggle)
+				{
+				case 0:
+					BSP_LedToggle(0);
+					printf("GREEN LIGHT");
+					break;
+
+				case 1:
+					BSP_LedToggle(1);
+					printf("YELLOW LIGHT");
+					break;
+
+				case 2:
+					BSP_LedToggle(0);
+					BSP_LedToggle(1);
+					printf("RED LIGHT");
+					break;
+
+				default:
+					break;
+				}
+				vTaskDelay(delay);
+			}
+		}
+
+}
+
+
+
 
 int main(void)
 {
@@ -159,21 +205,31 @@ int main(void)
 	    BSP_LedClear(1);
 
 	    //BSP_I2C_Init(0xB6);
-	    BSP_I2C_Init(0x5A);
-	    uint8_t value;
+	    //BSP_I2C_Init(0x5A);
+	    //uint8_t value;
 
 	    //Create the queue
 	    xLedQueue = xQueueCreate(QUEUE_LENGTH, sizeof(Message_t));
+	    xDataQueue = xQueueCreate(QUEUE_LENGTH, sizeof(Message_t));
 
-	    if (xLedQueue != NULL)
+	    printf("Starting queues");
+
+	    if (xDataQueue != NULL)
 	    {
 			//Creation of two task (each for each led) and a task to recieve the info
-			xTaskCreate(vLedTask1, "LED0 Task", STACK_SIZE_FOR_TASK, NULL, TASK_PRIORITY, NULL);
-			xTaskCreate(vLedTask2, "LED1 Task", STACK_SIZE_FOR_TASK, NULL, TASK_PRIORITY, NULL);
-			xTaskCreate(vReceiverTask, "Receiver Task", STACK_SIZE_FOR_TASK, NULL, TASK_PRIORITY, NULL);
+	    	xTaskCreate(vDataSend, "DATA Send", STACK_SIZE_FOR_TASK, NULL, TASK_PRIORITY, NULL);
 
-			vTaskStartScheduler();
+	    	xTaskCreate(vReceiverDegreeCalculator, "DATA Received", STACK_SIZE_FOR_TASK, NULL, TASK_PRIORITY, NULL);
 	    }
+
+	    if (xLedQueue != NULL)
+	   	    {
+	   			//Creation of two task (each for each led) and a task to recieve the info
+	   	    	xTaskCreate(vReceiveLedNumber, "Led number received", STACK_SIZE_FOR_TASK, NULL, TASK_PRIORITY, NULL);
+	   	    }
+
+	    vTaskStartScheduler();
+	    while (1);
 
 }
 
