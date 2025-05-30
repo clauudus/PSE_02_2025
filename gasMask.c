@@ -17,6 +17,13 @@
 
 #include "bsp_i2c.h"
 
+#include "em_device.h"
+#include "em_chip.h"
+#include "em_cmu.h"
+#include "em_emu.h"
+#include "em_cmu.h"
+#include <stdbool.h>
+
 #define STACK_SIZE_FOR_TASK    (configMINIMAL_STACK_SIZE + 10)
 #define TASK_PRIORITY          (tskIDLE_PRIORITY + 1)
 #define QUEUE_LENGTH           2
@@ -169,16 +176,27 @@ int main(void)
     // If the queue creation fails its task
     while (1);
     */
-
+		CHIP_Init();
 		BSP_TraceProfilerSetup();
 	    BSP_LedsInit();
 
 	    BSP_LedClear(0);
 	    BSP_LedClear(1);
 
-	    //BSP_I2C_Init(0xB6);
+
+	    BSP_TraceProfilerSetup();
+
+	    if (SysTick_Config(CMU_ClockFreqGet(cmuClock_CORE) / 1000)) {
+	        while (1) ;
+	      }
+
+	    BSP_I2C_Init(0x5B << 1);
 	    //BSP_I2C_Init(0x5A);
 	    //uint8_t value;
+
+	    uint8_t value;
+
+	    BSP_I2C_ReadRegister(0x20, &value);
 
 	    //Create the queue
 	    xDataQueue = xQueueCreate(QUEUE_LENGTH, sizeof(Message_t));
