@@ -47,16 +47,18 @@ QueueHandle_t xLedQueue;
 
 
 
-
-
 void vDataSend(void *pvParameters)
 {
-	int co2 = 1500;//(rand() % 8192) + 400;
-
+	//int co2 = 1500;//(rand() % 8192) + 400;
+	uint8_t co2;
+	BSP_I2C_ReadRegister(0x5B, &co2);
+	co2 = (co2 % 8192) + 400;
 	 Message_t msgToSend;
-	 const TickType_t delay = pdMS_TO_TICKS(500);
+	 const TickType_t delay = pdMS_TO_TICKS(3000);
 	 msgToSend.co2Value = co2;
 	 snprintf(msgToSend.message, sizeof(msgToSend.message), "Dades llegides");
+
+	 printf("Value: %u \n", co2);
 
 	 while(1)
 	 {
@@ -193,10 +195,13 @@ int main(void)
 	    BSP_I2C_Init(0x5B << 1);
 	    //BSP_I2C_Init(0x5A);
 	    //uint8_t value;
+	    //uint8_t value;
 
-	    uint8_t value;
+	    //BSP_I2C_ReadRegister(0x20, &value);
 
-	    BSP_I2C_ReadRegister(0x20, &value);
+	    uint8_t co2;
+	    BSP_I2C_ReadRegister(0x5B, &co2);
+	    co2 = (co2 % 8192) + 400;
 
 	    //Create the queue
 	    xDataQueue = xQueueCreate(QUEUE_LENGTH, sizeof(Message_t));
