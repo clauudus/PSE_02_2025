@@ -49,19 +49,21 @@ QueueHandle_t xLedQueue;
 
 void vDataSend(void *pvParameters)
 {
+	(void) pvParameters;
 	//int co2 = 1500;//(rand() % 8192) + 400;
-	uint8_t co2;
-	BSP_I2C_ReadRegister(0x5B, &co2);
-	co2 = (co2 % 8192) + 400;
-	 Message_t msgToSend;
-	 const TickType_t delay = pdMS_TO_TICKS(3000);
-	 msgToSend.co2Value = co2;
-	 snprintf(msgToSend.message, sizeof(msgToSend.message), "Dades llegides");
 
-	 printf("Value: %u \n", co2);
 
 	 while(1)
 	 {
+		 uint8_t co2;
+		 BSP_I2C_ReadRegister(0x02, &co2);
+		 Message_t msgToSend;
+		 const TickType_t delay = pdMS_TO_TICKS(10000);
+		 msgToSend.co2Value = co2;
+		 snprintf(msgToSend.message, sizeof(msgToSend.message), "Dades llegides");
+
+		 printf("Nivell de CO2: %u \n", co2);
+
 		 xQueueSend(xDataQueue, &msgToSend, 0);
 		 vTaskDelay(delay);
 	 }
@@ -70,6 +72,8 @@ void vDataSend(void *pvParameters)
 
 void vReceiverDegreeCalculator(void *pvParameters)
 {
+	(void) pvParameters;
+
     Message_t receivedMsg;
     int LedNumber = 0;
     	// 400 - 1000 verd, 1000 - 2000 groc, 2000 - 8192 vermell
@@ -77,17 +81,26 @@ void vReceiverDegreeCalculator(void *pvParameters)
     {
         if (xQueueReceive(xDataQueue, &receivedMsg, pdMS_TO_TICKS(1000)) == pdPASS)
         {
-        	if(receivedMsg.co2Value >= 1000 && receivedMsg.co2Value <= 2000)
+        	//printf("%s \n", receivedMsg.message);
+        	if(receivedMsg.co2Value <= 1)
         	{
-        		LedNumber = 1;
+        		LedNumber = 0;
         	}
         	else
         	{
-        		if(receivedMsg.co2Value > 2000)
+        		if(receivedMsg.co2Value == 2)
         		{
-        			LedNumber = 2;
+        			LedNumber = 1;
         		}
+        		else
+        		{
+        			if(receivedMsg.co2Value >= 3)
+        			{
+        				LedNumber = 2;
+        			}
+        		 }
         	}
+
 
         	LedMessage_t msgToSend;
         	msgToSend.LedToToggle = LedNumber;
@@ -101,6 +114,8 @@ void vReceiverDegreeCalculator(void *pvParameters)
 
 void vReceiveLedNumber(void *pvParameters)
 {
+	(void) pvParameters;
+
 	LedMessage_t LedRebut;
 	const TickType_t delay = pdMS_TO_TICKS(1000);
 
@@ -109,6 +124,7 @@ void vReceiveLedNumber(void *pvParameters)
 
 			if (xQueueReceive(xLedQueue, &LedRebut, pdMS_TO_TICKS(1000)) == pdPASS)
 			{
+				//printf("%s \n", LedRebut.message);
 				BSP_LedClear(0);
 				BSP_LedClear(1);
 
@@ -131,9 +147,12 @@ void vReceiveLedNumber(void *pvParameters)
 					break;
 
 				default:
+					BSP_LedToggle(0);
+					printf("GREEN LIGHT \n");
 					break;
 				}
 				vTaskDelay(delay);
+				printf("====================================== \n");
 			}
 		}
 
@@ -144,40 +163,6 @@ void vReceiveLedNumber(void *pvParameters)
 
 int main(void)
 {
-    /*CHIP_Init();
-    BSP_TraceProfilerSetup();
-    BSP_LedsInit();
-
-    BSP_LedClear(0);
-    BSP_LedClear(1);
-
-    //BSP_I2C_Init(0xB6);
-    BSP_I2C_Init(0x5A);
-    uint8_t value;
-
-    //Create the queue
-    xLedQueue = xQueueCreate(QUEUE_LENGTH, sizeof(LedMessage_t));
-    I2C_Test();
-
-
-    BSP_I2C_ReadRegister(0x02, &value);
-    printf("Valor: %00X\n", value);
-
-
-
-    if (xLedQueue != NULL)
-    {
-        //Creation of two task (each for each led) and a task to recieve the info
-        xTaskCreate(vLedTask1, "LED0 Task", STACK_SIZE_FOR_TASK, NULL, TASK_PRIORITY, NULL);
-        xTaskCreate(vLedTask2, "LED1 Task", STACK_SIZE_FOR_TASK, NULL, TASK_PRIORITY, NULL);
-        xTaskCreate(vReceiverTask, "Receiver Task", STACK_SIZE_FOR_TASK, NULL, TASK_PRIORITY, NULL);
-
-        vTaskStartScheduler();
-    }
-
-    // If the queue creation fails its task
-    while (1);
-    */
 		CHIP_Init();
 		BSP_TraceProfilerSetup();
 	    BSP_LedsInit();
@@ -194,14 +179,11 @@ int main(void)
 
 	    BSP_I2C_Init(0x5B << 1);
 	    //BSP_I2C_Init(0x5A);
-	    //uint8_t value;
-	    //uint8_t value;
 
-	    //BSP_I2C_ReadRegister(0x20, &value);
 
-	    uint8_t co2;
-	    BSP_I2C_ReadRegister(0x5B, &co2);
-	    co2 = (co2 % 8192) + 400;
+	    //uint8_t co2;
+	    //BSP_I2C_ReadRegister(0x5B, &co2);
+	    //co2 = (co2 % 8192) + 400;
 
 	    //Create the queue
 	    xDataQueue = xQueueCreate(QUEUE_LENGTH, sizeof(Message_t));
@@ -217,9 +199,9 @@ int main(void)
 	    }
 
 	    if (xLedQueue != NULL)
-	   	    {
-	   	    	xTaskCreate(vReceiveLedNumber, "Led number received", STACK_SIZE_FOR_TASK, NULL, TASK_PRIORITY, NULL);
-	   	    }
+	   	{
+	   	   	xTaskCreate(vReceiveLedNumber, "Led number received", STACK_SIZE_FOR_TASK, NULL, TASK_PRIORITY, NULL);
+	   	}
 
 	    vTaskStartScheduler();
 	    while (1);
